@@ -1,0 +1,5 @@
+#!/bin/bash
+
+git add pdfsequential12.py
+git commit -m 'adding pdfseq from guto pc'
+git push origin guto
