@@ -78,8 +78,8 @@ class pdfsequential12:
         l_g = [] #global list reference_value
         h = 1
 
-        n_rows = r[1]#30#len(ygrid)
-        n_cols = r[0]#25#len(xgrid)
+        n_rows = r[0]#30#len(ygrid)
+        n_cols = r[1]#25#len(xgrid)
         n_levels = r[2]
         print "berthin", r, "n_", n_rows, n_cols, n_levels
         K = len(seeds_)
@@ -96,7 +96,6 @@ class pdfsequential12:
                     return sgems.set_property(head_grid,new_prop,l_c),l_c
                     #return l_c
                 w_o(cut_off)
-
             elif (more_equal == '0' and less_equal == '1'):
                 def w_o_(cut_off): #define waste as 0 and ore as grade
                     for i in grid_value:
@@ -107,7 +106,6 @@ class pdfsequential12:
                     return sgems.set_property(head_grid,new_prop,l_c),l_c
                     #return l_c
                 w_o_(cut_off)
-
             elif (more_equal == '0' and less_equal == '0'):
                 print "Select option of cut off"
                 self.dict_gen_params['execution_status'] = "ERROR"
@@ -115,19 +113,15 @@ class pdfsequential12:
                 print "Error in execution type parameters"
                 self.dict_gen_params['execution_status'] = "ERROR"
 
-        grid1, gridnt = cut_off_(more_equal,less_equal), l_c
-        grid=np.array(gridnt).reshape(n_rows,n_cols, n_levels)
-        
-        #mapa = map3D('mapa_temporal')
-        #mapa.readFromFile('3dproob3.txt')
-        #mapa.convertCoordinates()
-        #grid_temporal = mapa.toMatrix()
+        grid1 = cut_off_(more_equal, less_equal)
+        gridnt = l_c
+        grid = np.array(gridnt).reshape(n_rows, n_cols, n_levels)
 
+        plt_imshowN([grid, grid == 0, grid, grid == 0],
+                    [0, 0, 1, 1], [dict(cmap='jet', interpolation='nearest')] * 4, dim=(2,2))
 
-        #gridz = np.array(grid1).reshape(n_rows-1, n_cols-1)
-        #print gridz
-
-        """def cut_off_(grid_value, cut_off, more_equal, less_equal):
+        """
+        def cut_off_(grid_value, cut_off, more_equal, less_equal):
             more_equal, less_equal = map(int, [more_equal, less_equal])
             if more_equal + less_equal != 1:
                 print 'Error, wrong cut_off values'
@@ -137,12 +131,10 @@ class pdfsequential12:
                 else:
                     threshold = grid_value <= cut_off
                 return threshold * grid_value
-
         grid2 = cut_off_(grid_value, cut_off, more_equal, less_equal)
         print type(grid2), len(grid2)
-
-        sgems.set_property(head_grid,new_prop,grid2)#print grid#plt_imshowN([head_grid, grid], [dict(cmap='jet', interpolation='nearest'), dict(cmap='jet', interpolation='nearest')], (1,2))'''"""
-
+        sgems.set_property(head_grid,new_prop,grid2)#print grid#plt_imshowN([head_grid, grid], [dict(cmap='jet', interpolation='nearest'), dict(cmap='jet', interpolation='nearest')], (1,2))
+        """
 
         def quantil(p):
             return np.percentile(p, np.arange(0,100,5))
@@ -156,86 +148,50 @@ class pdfsequential12:
             d= sum(c)
             return d
 
-
         def run_union_find(painter, K, iter_label, max_steps):
             fake_painter = copy.deepcopy(painter)
-            #fake_painter.uf = copy.copy(painter.uf)
             fake_painter.paint_Kregions(K, iter_label, max_steps)
-            #print fake_painter#np.sum(fake_painter.connected_processed_map * fake_painter.connected_map), fake_painter
-            ##return np.sum(fake_painter.connected_processed_map * fake_painter.connected_map), fake_painter
-            y0=np.ndarray.tolist((fake_painter.connected_processed_map * fake_painter.grid).ravel())
+            y0 = np.ndarray.tolist((fake_painter.connected_processed_map * fake_painter.grid).ravel())
             c_global= quantil(gridnt)
             c_list=quantil(y0)
             return compare(c_global,c_list), fake_painter
 
-            #return np.sum(fake_painter.connected_processed_map * fake_painter.grid), fake_painter
-
         def search_best_run(painter, K, n_iterations, max_steps):
             best_cost = 10000000000
+            best_painter = None
             for iter_label in xrange(n_iterations):
                 cost, fake_painter = run_union_find(painter, K, iter_label, max_steps)
                 print 'iter', iter_label, 'cost', cost
                 if cost < best_cost:
                     best_cost = cost
                     best_painter = fake_painter
-            #print cost, fake_painter
+            assert(best_painter != None)
             return (best_cost, best_painter)
-
 
         def repeat_all(grid,K, painter, n_iterations, n_steps_list, n_runs):
             for i, max_steps in zip(xrange(n_runs), n_steps_list):
                 print i, "run"
                 cost, painter = search_best_run(painter, K, n_iterations, max_steps)
                 #plt_imshowN([painter.connected_map, painter.connected_map_ordem], [0, 0], [dict(cmap='jet', interpolation='nearest'), dict(cmap='jet')], dim=(1,2))
-                plt_imshowN([painter.connected_map, painter.connected_map_ordem], [0, 0], [dict(cmap='jet', interpolation='nearest'), dict(cmap='jet')], dim=(1,2))
+                plt_imshowN([painter.connected_map * (painter.grid != 0), painter.connected_map_ordem, painter.connected_map * (painter.grid != 0), painter.connected_map_ordem],
+                            [0, 0, 1, 1], [dict(cmap='jet', interpolation='nearest')] * 4, dim=(2,2))
                 #np.reshape(grid, (1,np.product(grid.shape)))
                 maps_seed = (painter.connected_map * painter.connected_map)
                 maps_seed_ = np.ndarray.tolist(maps_seed.ravel()) #maps__ = np.array(maps_).T
                 sgems.set_property(head_grid,new_prop1+'-'+str(i),maps_seed_)
                 maps_ = painter.connected_map_ordem
                 maps__ = np.ndarray.tolist(maps_.ravel())
-
-
-
-                #f_list=[float('nan') for y in xrange(len(maps__))]
-                #    for j in xrange(len(maps__)):#maps3 = np.ndarray.tolist(maps_.T.ravel())
-                #        f_list[j]=maps__[j]
-
-                #sgems.set_property(head_grid,new_prop1+'-'+str(i),maps_seed_)
+                #
                 sgems.set_property(head_grid,new_prop2+'-'+str(i),maps__)
                 ee = np.ma.masked_array(grid,mask=maps_==0)
                 ee_ = ee.filled(0)
                 ee__ = np.ndarray.tolist(ee_.ravel())
                 sgems.set_property(head_grid,"sect_maps"+'-'+str(i),ee__)
 
-                """ import numpy as np
-                #import number
-                a = np.array([0,0,1,1,1,1,1,1,1,1,1,1,15,4,5,5,4,4,5])
-                s = np.array([1,0,3,5,8,0,0,0,0,0,0,0,0,0,0,6,7,0,0])
-
-                v = np.ma.masked_array(a,mask=s==0)
-                r = v.tolist()
-                print r
-
-
-                ordem_= np.array(ordem).tolist()
-                v3 = [float('nan') for y in xrange(len(v1))]
-                for j in xrange(len(v1)):
-                    if ordem_[j]<= 250:
-                        v3[j]=v1[j]"""
-
-
-
 
         uf = UnionFind(n_rows * n_cols * n_levels)
-
         guto = Painter(seeds_, grid, uf, K)
-        print 'testing'
-        guto.test_converter()
-        print 'end'
-
         repeat_all(grid, K, painter = guto, n_iterations = simulation, n_steps_list = [fases] * runs, n_runs = runs)#cambiando
-
 
         return True
 

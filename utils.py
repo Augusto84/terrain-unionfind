@@ -85,7 +85,9 @@ class Painter:
         self.regions = [[x] for x in self.seeds[:self.K]]
 
     def is_within_bounds(self, position, limits):               #define funcao que da os limites da matriz
-        return [0] * len(position) <= position and position < limits
+        within = lambda a,x,b : a <= x and x < b
+        #return [0] * len(position) <= position and position < limits
+        return all(map(within, [0] * len(position), position, limits))
 
     def convert_number2coordinates(self, num, limits):
         # limits = (n_rows, n_cols, n_levels)
@@ -111,6 +113,7 @@ class Painter:
             print i, ':', r, c, d, A[r,c,d], self.convert_coordinates2number([r,c,d], limits)
             assert(A[r, c, d] == i)
             assert(self.convert_coordinates2number([r,c,d], limits) == i)
+        return True
 
     def paint_Kregions (self, K, iter_label, max_steps = 250):                     #define a funcao paint_Kregions#colocar iter
         np.random.shuffle(self.index_next_move)
@@ -119,6 +122,7 @@ class Painter:
         all_regions_found = False
         stop = False
         cannot_expand_more = 0
+        limits = [self.n_rows, self.n_cols, self.n_levels]
         while not all_regions_found and ith_step < max_steps and cannot_expand_more < K:
             cannot_expand_more = 0
             for ith_region in xrange(K):                    #para as K regioes
@@ -128,19 +132,18 @@ class Painter:
                 found_valid_move = False
                 n_elements_current_region = len(self.regions[ith_region]) #conta o numero de elementos das regioes
                 #stop = not (stop | (n_elements_current_region > 0))
-
+                #
                 while not found_valid_move and n_elements_current_region > 0: #while (not False) and (n_elements_current_region > 0)
                     u = self.regions[ith_region][0]
-                    row, col, depth = self.convert_number2coordinates (u, (self.n_rows, self.n_cols, self.n_levels))
-
+                    row, col, depth = self.convert_number2coordinates(u, limits)
+                    #
                     for i_move in self.index_next_move:
-                        #if not self.is_within_bounds((row + self.move_row[i_move], col + self.move_col[i_move]), (self.n_rows, self.n_cols)):
-                        if not self.is_within_bounds((row + self.move_row[i_move], col + self.move_col[i_move]), (self.n_rows, self.n_cols)) \
-                            and self.grid[row + self.move_row[i_move]][col + self.move_col[i_move]] > 0:
+                        nxt_row, nxt_col = row + self.move_row[i_move], col + self.move_col[i_move]
+                        if not self.is_within_bounds((nxt_row, nxt_col), limits[:2]) \
+                            or self.grid[(nxt_row, nxt_col, depth)] == 0:
                             continue
-                        v = self.convert_coordinates2number((row + self.move_row[i_move], col + self.move_col[i_move], depth), (self.n_rows, self.n_cols, self.n_levels))
+                        v = self.convert_coordinates2number((nxt_row, nxt_col, depth), limits)
                         #v = sao os elementos aderidos por a sequencia en cruz
-
                         if self.uf._union(u, v):
                             found_valid_move = True
                             self.uf._update_ordem(v)
@@ -155,13 +158,52 @@ class Painter:
                 np.random.shuffle(self.regions[ith_region])
                 if n_elements_current_region == 0:
                     cannot_expand_more += 1
-
+        #
         if cannot_expand_more == K:
             print 'it was not possible to expand more due to connectivity issues'
+        #
+        #self.connected_map = np.array([self.uf._find(i) for i in xrange(self.uf.n_elements)]).reshape(limits)
+        #self.connected_map_ordem = np.array([self.uf.get_ordem(i) for i in xrange(self.uf.n_elements)]).reshape(limits)
+        #self.connected_processed_map = self.connected_map_ordem > 0
+        self.connected_map = np.empty(limits, int)
+        self.connected_map_ordem = np.empty(limits, int)
+        self.connected_processed_map = np.empty(limits, int)
+        for i in xrange(self.uf.n_elements):
+            coord = self.convert_number2coordinates(i, limits)
+            self.connected_map[coord] = self.uf._find(i)
+            self.connected_map_ordem[coord] = self.uf.get_ordem(i)
+            self.connected_processed_map[coord] = self.uf.get_ordem(i) > 0
 
-        self.connected_map = np.array([self.uf._find(i) for i in xrange(self.uf.n_elements)]).reshape(self.n_rows, self.n_cols, self.n_levels)
-        self.connected_map_ordem = np.array([self.uf.get_ordem(i) for i in xrange(self.n_rows * self.n_cols * self.n_levels)]).reshape(self.n_rows, self.n_cols, self.n_levels)
-        self.connected_processed_map = self.connected_map_ordem > 0
+    def test2D(self, showPlots = False):
+        assert(self.test_converter())
+        import hashlib
+        # to test run the following command on a terminal:
+        # python -c "from utils import *; guto = Painter([0], np.zeros([1,1,1]), UnionFind(1), 1); guto.test2D(showPlots=True);"
+        # Creating varibles to set up the Painter
+        np.random.seed(1)
+        n_rows, n_cols, n_levels = 20, 20, 1
+        grid = np.random.randint(low = 0, high = 100, size = n_rows * n_cols * n_levels).reshape([n_rows, n_cols, n_levels])
+        grid = grid * (grid > np.random.randint(low = 0, high = 30))
+        K = 3
+        seeds = np.random.randint(low = 0, high = n_rows * n_cols * n_levels, size = K)
+        assert(all([grid[self.convert_number2coordinates(ith_seed, [n_rows, n_cols, n_levels])] > 0 for ith_seed in seeds]))
+        uf = UnionFind(n_rows * n_cols * n_levels)
+        self.__init__(seeds, grid, uf, K)
+        # 
+        def showGrid(grid_):
+            if not showPlots:
+                return
+            plt.imshow(grid_[..., 0], interpolation='nearest')
+            plt.show()
+        # Show grid
+        showGrid(grid)
+        # Run the painter
+        self.paint_Kregions(K, iter_label=None, max_steps=100)
+        # Show results
+        showGrid(self.connected_map)
+        hash_obj = hashlib.md5(self.connected_map.reshape(-1))
+        assert(hash_obj.hexdigest() == "d6b6444b088f017e4a500a10a80761a8")
+
 
 class Map3D:
     def __init__(self, map_name = ''):
